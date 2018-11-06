@@ -14,6 +14,7 @@ public class DecompressingThread implements Runnable {
     public void run() {
         ByteArrayInputStream bis = new ByteArrayInputStream(bytes);
         GZIPInputStream gis;
+        long start = System.currentTimeMillis();
         try {
             gis = new GZIPInputStream(bis);
             ObjectInputStream objectInputStream = new ObjectInputStream(gis);
@@ -22,6 +23,8 @@ public class DecompressingThread implements Runnable {
         } catch (Exception e) {
             e.printStackTrace();
         }
+
+        System.out.println("Decompressing finished in: " + (System.currentTimeMillis() - start) + " millis");
     }
 
     public byte[] getBytes() {
@@ -34,6 +37,7 @@ public class DecompressingThread implements Runnable {
     }
 
     public ProcessedObject getProcessedObject() {
+        System.out.println("Pixels are here: " + processedObject.getPixels().length);
         return processedObject;
     }
 
