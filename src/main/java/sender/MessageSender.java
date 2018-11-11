@@ -14,6 +14,8 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Random;
 
+import static main.Master.SLAVES_NUMBER;
+
 public class MessageSender implements Runnable {
 
     List<ProcessingObject> processingObjects = new ArrayList<ProcessingObject>(Arrays.asList(
@@ -37,8 +39,10 @@ public class MessageSender implements Runnable {
 //                processingObjects.forEach(processingObject -> processingObject.setRy(processingObject.getRy()++));
                 Random random
                         = new Random();
-                int objIndex = random.nextInt(processingObjects.size());
+                int objIndex = random.nextInt(SLAVES_NUMBER);
 //                System.out.println("Sending to slave obj no: " + objIndex);
+
+                processingObjects.get(objIndex).increaseRotationOnY();
 
                 ObjectMessage objectMessage = session
                         .createObjectMessage(

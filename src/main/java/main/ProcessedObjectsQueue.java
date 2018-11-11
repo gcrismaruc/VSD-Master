@@ -1,3 +1,5 @@
+package main;
+
 import entities.ProcessedObject;
 
 import java.util.concurrent.ConcurrentLinkedQueue;

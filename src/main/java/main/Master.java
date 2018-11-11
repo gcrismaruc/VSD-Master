@@ -1,3 +1,5 @@
+package main;
+
 import com.jogamp.opengl.GL;
 import entities.ProcessedObject;
 import org.lwjgl.LWJGLException;
@@ -32,7 +34,7 @@ public class Master {
     public static final int HEIGHT = 720;
     private static final int FPS_CAP = 60;
 
-    private static int SLAVES_NUMBER = 3;
+    public static int SLAVES_NUMBER = 2;
 
     private static final float[] depths = new float[WIDTH * HEIGHT];
 
@@ -85,7 +87,7 @@ public class Master {
             List<DecompressingThread> decompressingThreads = new ArrayList<DecompressingThread>();
 
             Thread.sleep(10000L);
-            //            DecompressingThread decompressingThread = new DecompressingThread();
+            //            main.DecompressingThread decompressingThread = new main.DecompressingThread();
 
             ProcessedObjectsQueue processedObjectsQueue = new ProcessedObjectsQueue();
 

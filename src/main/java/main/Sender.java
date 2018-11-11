@@ -1,3 +1,7 @@
+package main;
+
+import entities.ProcessedObject;
+
 import javax.jms.Connection;
 import javax.jms.ConnectionFactory;
 import javax.jms.DeliveryMode;
@@ -5,16 +9,26 @@ import javax.jms.Destination;
 import javax.jms.ExceptionListener;
 import javax.jms.JMSException;
 import javax.jms.Message;
-import javax.jms.MessageConsumer;
 import javax.jms.MessageProducer;
+import javax.jms.ObjectMessage;
 import javax.jms.Session;
-import javax.jms.TemporaryQueue;
-import javax.jms.TextMessage;
 import javax.naming.Context;
 import javax.naming.InitialContext;
 
-public class Server {
+public class Sender {
+    private static final int DEFAULT_COUNT = 1000;
+    private static final int DELIVERY_MODE = DeliveryMode.NON_PERSISTENT;
+
     public static void main(String[] args) throws Exception {
+        int count = DEFAULT_COUNT;
+        if (args.length == 0) {
+            System.out.println("Sending up to " + count + " messages.");
+            System.out.println("Specify a message count as the program argument if you wish to send a different amount.");
+        } else {
+            count = Integer.parseInt(args[0]);
+            System.out.println("Sending up to " + count + " messages.");
+        }
+
         try {
             // The configuration for the Qpid InitialContextFactory has been supplied in
             // a jndi.properties file in the classpath, which results in it being picked
@@ -30,35 +44,30 @@ public class Server {
 
             Session session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
 
-            //Create a temporary queue and consumer to receive responses, and a producer to send requests.
-            TemporaryQueue responseQueue = session.createTemporaryQueue();
-            MessageConsumer messageConsumer = session.createConsumer(responseQueue);
             MessageProducer messageProducer = session.createProducer(queue);
 
-            //Send some requests and receive the responses.
-            String[] requests = new String[] { "Twas brillig, and the slithy toves",
-                    "Did gire and gymble in the wabe.",
-                    "All mimsy were the borogroves,",
-                    "And the mome raths outgrabe." };
+            long start = System.currentTimeMillis();
+            for (int i = 1; i <= count; i++) {
+//                TextMessage message = session.createTextMessage("Text!");
 
-            for (String request : requests) {
-                TextMessage requestMessage = session.createTextMessage(request);
-                requestMessage.setJMSReplyTo(responseQueue);
+                ObjectMessage objectMessage = session.createObjectMessage(new ProcessedObject(new byte[]{12, 21, 21}, new byte[]{12,22,1,3}));
 
-                messageProducer.send(requestMessage, DeliveryMode.NON_PERSISTENT, Message.DEFAULT_PRIORITY, Message.DEFAULT_TIME_TO_LIVE);
+                messageProducer.send(objectMessage, DELIVERY_MODE, Message.DEFAULT_PRIORITY, Message.DEFAULT_TIME_TO_LIVE);
 
-                TextMessage responseMessage = (TextMessage) messageConsumer.receive(100000);
-                if (responseMessage != null) {
-                    System.out.println("[CLIENT] " + request + " ---> " + responseMessage.getText());
-                } else {
-                    System.out.println("[CLIENT] Response for '" + request +"' was not received within the timeout, exiting.");
-                    break;
+
+
+                if (i % 100 == 0) {
+                    System.out.println("Sent message " + i);
                 }
             }
 
+            long finish = System.currentTimeMillis();
+            long taken = finish - start;
+            System.out.println("Sent " + count + " messages in " + taken + "ms");
+
             connection.close();
         } catch (Exception exp) {
-            System.out.println("[CLIENT] Caught exception, exiting.");
+            System.out.println("Caught exception, exiting.");
             exp.printStackTrace(System.out);
             System.exit(1);
         }
@@ -66,7 +75,7 @@ public class Server {
 
     private static class MyExceptionListener implements ExceptionListener {
         public void onException(JMSException exception) {
-            System.out.println("[CLIENT] Connection ExceptionListener fired, exiting.");
+            System.out.println("Connection ExceptionListener fired, exiting.");
             exception.printStackTrace(System.out);
             System.exit(1);
         }

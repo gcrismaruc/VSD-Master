@@ -1,3 +1,5 @@
+package main;
+
 import entities.ProcessedObject;
 
 import java.io.ByteArrayInputStream;
@@ -56,7 +58,7 @@ public class DecompressingThread implements Runnable {
 //        return processedObject;
 //    }
 //
-//    public DecompressingThread setProcessedObject(ProcessedObject processedObject) {
+//    public main.DecompressingThread setProcessedObject(ProcessedObject processedObject) {
 //        this.processedObject = processedObject;
 //        return this;
 //    }

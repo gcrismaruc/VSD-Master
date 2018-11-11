@@ -9,6 +9,14 @@ public class ProcessingObject implements Serializable {
     private int x;
     private int y;
     private int z;
+
+    private int previousRx;
+    private int previousRy;
+    private int previousRz;
+    private int previousX;
+    private int previousY;
+    private int previousZ;
+
     private float pitch;
     private float yaw;
     private String objectName;
@@ -24,6 +32,60 @@ public class ProcessingObject implements Serializable {
         this.pitch = pitch;
         this.yaw = yaw;
         this.objectName = objectName;
+    }
+
+    public int getPreviousRx() {
+        return previousRx;
+    }
+
+    public ProcessingObject setPreviousRx(int previousRx) {
+        this.previousRx = previousRx;
+        return this;
+    }
+
+    public int getPreviousRy() {
+        return previousRy;
+    }
+
+    public ProcessingObject setPreviousRy(int previousRy) {
+        this.previousRy = previousRy;
+        return this;
+    }
+
+    public int getPreviousRz() {
+        return previousRz;
+    }
+
+    public ProcessingObject setPreviousRz(int previousRz) {
+        this.previousRz = previousRz;
+        return this;
+    }
+
+    public int getPreviousX() {
+        return previousX;
+    }
+
+    public ProcessingObject setPreviousX(int previousX) {
+        this.previousX = previousX;
+        return this;
+    }
+
+    public int getPreviousY() {
+        return previousY;
+    }
+
+    public ProcessingObject setPreviousY(int previousY) {
+        this.previousY = previousY;
+        return this;
+    }
+
+    public int getPreviousZ() {
+        return previousZ;
+    }
+
+    public ProcessingObject setPreviousZ(int previousZ) {
+        this.previousZ = previousZ;
+        return this;
     }
 
     public ProcessingObject() {
@@ -109,4 +171,31 @@ public class ProcessingObject implements Serializable {
         this.objectName = objectName;
         return this;
     }
+
+    public void increaseRotationOnY() {
+        previousRy = ry;
+        ry += 1.0;
+    }
+    public void increaseRotationOnZ() {
+        previousRz = rz;
+        rz += 1.0;
+    }
+    public void increaseRotationOnX() {
+        previousRx = rx;
+        rx += 1.0;
+    }
+
+    public void moveOnX(){
+        previousX = x;
+        x += 1.0;
+    }
+    public void moveOnY(){
+        previousY = y;
+        y += 1.0;
+    }
+    public void moveOnZ(){
+        previousZ = z;
+        z += 1.0;
+    }
+
 }
