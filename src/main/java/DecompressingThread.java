@@ -7,7 +7,8 @@ import java.util.zip.GZIPInputStream;
 public class DecompressingThread implements Runnable {
 
     private byte[] bytes;
-    private ProcessedObject processedObject;
+    private ProcessedObjectsQueue processedObjectsQueue;
+//    private ProcessedObject processedObject;
 
 
 
@@ -18,13 +19,13 @@ public class DecompressingThread implements Runnable {
         try {
             gis = new GZIPInputStream(bis);
             ObjectInputStream objectInputStream = new ObjectInputStream(gis);
-            processedObject = (ProcessedObject) objectInputStream.readObject();
+            processedObjectsQueue.add((ProcessedObject)objectInputStream.readObject());
 
         } catch (Exception e) {
             e.printStackTrace();
         }
 
-        System.out.println("Decompressing finished in: " + (System.currentTimeMillis() - start) + " millis");
+//        System.out.println("Decompressing finished in: " + (System.currentTimeMillis() - start) + " millis");
     }
 
     public byte[] getBytes() {
@@ -37,12 +38,26 @@ public class DecompressingThread implements Runnable {
     }
 
     public ProcessedObject getProcessedObject() {
-        System.out.println("Pixels are here: " + processedObject.getPixels().length);
-        return processedObject;
+        return processedObjectsQueue.get();
     }
 
-    public DecompressingThread setProcessedObject(ProcessedObject processedObject) {
-        this.processedObject = processedObject;
+    public ProcessedObjectsQueue getProcessedObjectsQueue() {
+        return processedObjectsQueue;
+    }
+
+    public DecompressingThread setProcessedObjectsQueue(
+            ProcessedObjectsQueue processedObjectsQueue) {
+        this.processedObjectsQueue = processedObjectsQueue;
         return this;
     }
+
+    //    public ProcessedObject getProcessedObject() {
+//        System.out.println("Pixels are here: " + processedObject.getPixels().length);
+//        return processedObject;
+//    }
+//
+//    public DecompressingThread setProcessedObject(ProcessedObject processedObject) {
+//        this.processedObject = processedObject;
+//        return this;
+//    }
 }

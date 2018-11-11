@@ -23,6 +23,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 public class Master {
 
@@ -83,8 +85,9 @@ public class Master {
             List<DecompressingThread> decompressingThreads = new ArrayList<DecompressingThread>();
 
             Thread.sleep(10000L);
-            DecompressingThread decompressingThread = new DecompressingThread();
+            //            DecompressingThread decompressingThread = new DecompressingThread();
 
+            ProcessedObjectsQueue processedObjectsQueue = new ProcessedObjectsQueue();
 
             while (!Display.isCloseRequested()) {
                 // Clear the screen and depth buffer
@@ -94,26 +97,30 @@ public class Master {
                     message1 = messageConsumer.receive(100000);
 
                     ObjectMessage objectMessage = (ObjectMessage) message1;
-                            decompressingThread.setBytes((byte[]) objectMessage
-                                    .getObject());
-                                        decompressingThread.run();
-//                    executorService.execute(decompressingThread);
+                    //                            decompressingThread.setBytes((byte[]) objectMessage
+                    //                                    .getObject());
+                    //                                        decompressingThread.run();
+                    DecompressingThread decompressingThread = new DecompressingThread()
+                            .setBytes((byte[]) objectMessage.getObject())
+                            .setProcessedObjectsQueue(processedObjectsQueue);
+
+                    executorService.execute(
+                            decompressingThread);
+
                     decompressingThreads.add(decompressingThread);
-
-                                        entities.ProcessedObject processedObject = decompressingThread
-                                                .getProcessedObject();
-
-                                        processedObjects.add(processedObject);
+//                    entities.ProcessedObject processedObject = decompressingThread
+//                            .getProcessedObject();
+//                    processedObjects.add(processedObject);
                 }
 
-//                executorService.awaitTermination(1, TimeUnit.SECONDS);
+                executorService.awaitTermination(500, TimeUnit.MILLISECONDS);
 
-//                processedObjects
-//                        .addAll(decompressingThreads
-//                                .stream()
-//                                .map(decompressingThread -> decompressingThread
-//                                        .getProcessedObject())
-//                                .collect(Collectors.toList()));
+                processedObjects
+                        .addAll(decompressingThreads
+                                .stream()
+                                .map(decompressingThread -> decompressingThread
+                                        .getProcessedObject())
+                                .collect(Collectors.toList()));
 
                 if (isFirstImage) {
                     byteBuffer = ByteBuffer
@@ -136,10 +143,10 @@ public class Master {
                     GL11.glDrawPixels(WIDTH, HEIGHT, GL.GL_RGB, GL11.GL_UNSIGNED_BYTE,
                             render);
                     Display.update();
-                    System.out.println("Displayed " + decompressingThreads.size());
+//                    System.out.println("Displayed " + decompressingThreads.size());
                 }
 
-//                decompressingThreads.removeAll(decompressingThreads);
+                decompressingThreads.removeAll(decompressingThreads);
                 processedObjects.removeAll(processedObjects);
             }
 
