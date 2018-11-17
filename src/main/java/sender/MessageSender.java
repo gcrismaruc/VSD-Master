@@ -9,6 +9,7 @@ import javax.jms.Message;
 import javax.jms.MessageProducer;
 import javax.jms.ObjectMessage;
 import javax.jms.Session;
+import java.time.Instant;
 import java.util.List;
 
 public class MessageSender implements Runnable {
@@ -18,14 +19,13 @@ public class MessageSender implements Runnable {
     private MessageProducer messageProducer;
     private static final int DELIVERY_MODE = DeliveryMode.NON_PERSISTENT;
 
-    private int objectKeyboardNumber = 0;
-
     public MessageSender(Session session, MessageProducer messageProducer) {
         this.session = session;
         this.messageProducer = messageProducer;
     }
 
     public void run() {
+        Instant start = Instant.now();
         processingObjects.forEach(processingObject -> {
             try {
 
@@ -36,19 +36,17 @@ public class MessageSender implements Runnable {
                         Message.DEFAULT_TIME_TO_LIVE);
                 processingObject.increaseRotationOnY();
 
-                System.out.println(
-                        "Processing object: " + processingObject.getObjectName() + " Y = "
-                                + processingObject.getRy());
+//                System.out.println(
+//                        "Processing object: " + processingObject.getObjectName() + " Y = "
+//                                + processingObject.getRy());
 
             } catch (JMSException e) {
                 e.printStackTrace();
             }
         });
-        try {
-            Thread.sleep(300);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
+
+//        System.out.println("Sending messages = " + Duration.between(start, Instant.now()).toMillis() + " ms");
+
     }
 
     public MessageSender setProcessingObjects(

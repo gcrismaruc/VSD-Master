@@ -22,6 +22,7 @@ import javax.jms.Session;
 import javax.naming.Context;
 import javax.naming.InitialContext;
 import java.nio.ByteBuffer;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -36,7 +37,7 @@ public class Master {
     public static final int HEIGHT = 720;
     private static final int FPS_CAP = 60;
 
-    public static int SLAVES_NUMBER = 4;
+    public static int SLAVES_NUMBER = 2;
 
     private static final float[] depths = new float[WIDTH * HEIGHT];
 
@@ -64,9 +65,9 @@ public class Master {
 
         List<ProcessingObject> processingObjects = new ArrayList<>(Arrays.asList(
                 new ProcessingObject(0, 1, 0, -10, 5, -65, "dragon.obj"),
-                new ProcessingObject(0, 1, 0, 10, 3, -55, "stall.obj"),
-                new ProcessingObject(0, 1, 0, -10, -3, -65, "dragon.obj"),
-                new ProcessingObject(0, 1, 0, 10, -4, -55, "stall.obj")
+                new ProcessingObject(0, 1, 0, 10, 3, -55, "stall.obj")
+//                new ProcessingObject(0, 1, 0, -10, -3, -65, "dragon.obj"),
+//                new ProcessingObject(0, 1, 0, 10, -4, -55, "stall.obj")
         ));
 
         try {
@@ -106,13 +107,16 @@ public class Master {
                 // Clear the screen and depth buffer
                 GL11.glClear(GL11.GL_COLOR_BUFFER_BIT | GL11.GL_DEPTH_BUFFER_BIT);
 
+//                System.out.println("***********************************************************************");
+                Instant startLoop = Instant.now();
+
+                Instant startReceiving = Instant.now();
                 for (int k = 0; k < SLAVES_NUMBER; k++) {
+                    Instant msg = Instant.now();
                     receivedMessage = messageConsumer.receive(100000);
+//                    System.out.println("Receiving one msg = " + Duration.between(msg, Instant.now()).toMillis() + " ms");
 
                     ObjectMessage objectMessage = (ObjectMessage) receivedMessage;
-                    //                            decompressingThread.setBytes((byte[]) objectMessage
-                    //                                    .getObject());
-                    //                                        decompressingThread.run();
                     DecompressingThread decompressingThread = new DecompressingThread()
                             .setBytes((byte[]) objectMessage.getObject())
                             .setProcessedObjectsQueue(processedObjectsQueue);
@@ -121,19 +125,20 @@ public class Master {
                             decompressingThread);
 
                     decompressingThreads.add(decompressingThread);
-                    //                    entities.ProcessedObject processedObject = decompressingThread
-                    //                            .getProcessedObject();
-                    //                    processedObjects.add(processedObject);
                 }
                 //wait the decompressing threads to finish their job
-                executorService.awaitTermination(150, TimeUnit.MILLISECONDS);
+                executorService.awaitTermination(100, TimeUnit.MILLISECONDS);
+//                System.out.println("Receiving time = " + Duration.between(startReceiving, Instant.now()).toMillis() + " ms");
 
+
+                Instant startMapping = Instant.now();
                 processedObjects
                         .addAll(decompressingThreads
                                 .stream()
                                 .map(decompressingThread -> decompressingThread
                                         .getProcessedObject())
                                 .collect(Collectors.toList()));
+//                System.out.println("Mapping time = " + Duration.between(startMapping, Instant.now()).toMillis() + " ms");
 
                 if (isFirstImage) {
                     byteBuffer = ByteBuffer
@@ -149,7 +154,10 @@ public class Master {
                     isFirstImage = false;
                 } else {
 
+                    Instant start = Instant.now();
                     renderBuffer = updateBuffer(processedObjects);
+
+//                    System.out.println("Merging time = " + Duration.between(start, Instant.now()).toMillis() + " ms");
 
                     GL11.glDrawPixels(WIDTH, HEIGHT, GL.GL_RGB, GL11.GL_UNSIGNED_BYTE,
                             renderBuffer);
@@ -161,6 +169,9 @@ public class Master {
 
                 decompressingThreads.removeAll(decompressingThreads);
                 processedObjects.removeAll(processedObjects);
+
+//                System.out.println("Total loop time: " + Duration.between(startLoop, Instant.now()).toMillis() + " ms");
+//                System.out.println("----------------------------------------------------------------------------------");
             }
 
             connection.close();
@@ -205,28 +216,28 @@ public class Master {
     private static ProcessedObject getImage(ProcessedObject processedObject, byte[] pixelsBuffer,
             byte[] depthBuffer) {
 
-        //        byte[] newPixels = new byte[processedObject.getPixels().length];
-        //        byte[] newDepths = new byte[processedObject.getDepthBuffer().length];
+        byte[] newPixels = new byte[processedObject.getPixels().length];
+        byte[] newDepths = new byte[processedObject.getDepthBuffer().length];
 
         int pixelIndex = 0;
         for (int i = 0; i < processedObject.getDepthBuffer().length; i += 4) {
             if (depthBuffer[i + 2] > processedObject.getDepthBuffer()[i + 2]) {
-                processedObject.getPixels()[pixelIndex] = pixelsBuffer[pixelIndex];
-                processedObject.getPixels()[pixelIndex + 1] = pixelsBuffer[pixelIndex + 1];
-                processedObject.getPixels()[pixelIndex + 2] = pixelsBuffer[pixelIndex + 2];
-                processedObject.getDepthBuffer()[i] = depthBuffer[i + 2];
+                newPixels[pixelIndex] = pixelsBuffer[pixelIndex];
+                newPixels[pixelIndex + 1] = pixelsBuffer[pixelIndex + 1];
+                newPixels[pixelIndex + 2] = pixelsBuffer[pixelIndex + 2];
+                newDepths[i] = depthBuffer[i + 2];
             } else {
-                processedObject.getPixels()[pixelIndex] = processedObject.getPixels()[pixelIndex];
-                processedObject.getPixels()[pixelIndex + 1] = processedObject.getPixels()[pixelIndex
-                        + 1];
-                processedObject.getPixels()[pixelIndex + 2] = processedObject.getPixels()[pixelIndex
-                        + 2];
-                processedObject.getDepthBuffer()[i] = processedObject.getDepthBuffer()[i + 2];
+                newPixels[pixelIndex] = processedObject.getPixels()[pixelIndex];
+                newPixels[pixelIndex + 1] = processedObject.getPixels()[pixelIndex + 1];
+                newPixels[pixelIndex + 2] = processedObject.getPixels()[pixelIndex + 2];
+                newDepths[i] = processedObject.getDepthBuffer()[i + 2];
             }
             pixelIndex += 3;
         }
 
-        return processedObject;
+        return processedObject
+                .setPixels(newPixels)
+                .setDepthBuffer(newDepths);
     }
 
     public static void main(String[] argv) {

@@ -4,6 +4,7 @@ import entities.ProcessedObject;
 
 import java.io.ByteArrayInputStream;
 import java.io.ObjectInputStream;
+import java.time.Instant;
 import java.util.zip.GZIPInputStream;
 
 public class DecompressingThread implements Runnable {
@@ -17,7 +18,7 @@ public class DecompressingThread implements Runnable {
     public void run() {
         ByteArrayInputStream bis = new ByteArrayInputStream(bytes);
         GZIPInputStream gis;
-        long start = System.currentTimeMillis();
+        Instant start = Instant.now();
         try {
             gis = new GZIPInputStream(bis);
             ObjectInputStream objectInputStream = new ObjectInputStream(gis);
@@ -27,7 +28,7 @@ public class DecompressingThread implements Runnable {
             e.printStackTrace();
         }
 
-//        System.out.println("Decompressing finished in: " + (System.currentTimeMillis() - start) + " millis");
+//        System.out.println("Decompressing finished in: " + Duration.between(start, Instant.now()).toMillis() + " ms");
     }
 
     public byte[] getBytes() {
