@@ -2,6 +2,7 @@ package main;
 
 import com.jogamp.opengl.GL;
 import entities.ProcessedObject;
+import entities.ProcessingObject;
 import org.lwjgl.LWJGLException;
 import org.lwjgl.opengl.Display;
 import org.lwjgl.opengl.DisplayMode;
@@ -22,6 +23,7 @@ import javax.naming.Context;
 import javax.naming.InitialContext;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -34,18 +36,21 @@ public class Master {
     public static final int HEIGHT = 720;
     private static final int FPS_CAP = 60;
 
-    public static int SLAVES_NUMBER = 2;
+    public static int SLAVES_NUMBER = 4;
 
     private static final float[] depths = new float[WIDTH * HEIGHT];
 
     public void start() {
         try {
             Display.setDisplayMode(new DisplayMode(WIDTH, HEIGHT));
+            Display.setTitle("Master");
             Display.create();
         } catch (LWJGLException e) {
             e.printStackTrace();
             System.exit(0);
         }
+
+        ByteBuffer renderBuffer;
 
         // init OpenGL
         GL11.glMatrixMode(GL11.GL_PROJECTION);
@@ -56,6 +61,13 @@ public class Master {
 
         ByteBuffer byteBuffer;
         boolean isFirstImage = true;
+
+        List<ProcessingObject> processingObjects = new ArrayList<>(Arrays.asList(
+                new ProcessingObject(0, 1, 0, -10, 5, -65, "dragon.obj"),
+                new ProcessingObject(0, 1, 0, 10, 3, -55, "stall.obj"),
+                new ProcessingObject(0, 1, 0, -10, -3, -65, "dragon.obj"),
+                new ProcessingObject(0, 1, 0, 10, -4, -55, "stall.obj")
+        ));
 
         try {
             Context context = new InitialContext();
@@ -76,18 +88,17 @@ public class Master {
 
             //Start sending requests to slaves
             MessageSender messageSender = new MessageSender(producerSession, messageProducer);
+            messageSender.setProcessingObjects(processingObjects);
 
-            Thread senderThread = new Thread(messageSender);
-            senderThread.setName("Receiving thread");
-            senderThread.start();
-            Message message1;
+            ExecutorService executorService = Executors.newFixedThreadPool(SLAVES_NUMBER + 1);
 
-            ExecutorService executorService = Executors.newFixedThreadPool(SLAVES_NUMBER);
-            List<ProcessedObject> processedObjects = new ArrayList<ProcessedObject>();
-            List<DecompressingThread> decompressingThreads = new ArrayList<DecompressingThread>();
+            executorService.execute(messageSender);
+            Message receivedMessage;
 
-            Thread.sleep(10000L);
-            //            main.DecompressingThread decompressingThread = new main.DecompressingThread();
+            List<ProcessedObject> processedObjects = new ArrayList<>();
+            List<DecompressingThread> decompressingThreads = new ArrayList<>();
+
+            Thread.sleep(3000L);
 
             ProcessedObjectsQueue processedObjectsQueue = new ProcessedObjectsQueue();
 
@@ -96,9 +107,9 @@ public class Master {
                 GL11.glClear(GL11.GL_COLOR_BUFFER_BIT | GL11.GL_DEPTH_BUFFER_BIT);
 
                 for (int k = 0; k < SLAVES_NUMBER; k++) {
-                    message1 = messageConsumer.receive(100000);
+                    receivedMessage = messageConsumer.receive(100000);
 
-                    ObjectMessage objectMessage = (ObjectMessage) message1;
+                    ObjectMessage objectMessage = (ObjectMessage) receivedMessage;
                     //                            decompressingThread.setBytes((byte[]) objectMessage
                     //                                    .getObject());
                     //                                        decompressingThread.run();
@@ -110,12 +121,12 @@ public class Master {
                             decompressingThread);
 
                     decompressingThreads.add(decompressingThread);
-//                    entities.ProcessedObject processedObject = decompressingThread
-//                            .getProcessedObject();
-//                    processedObjects.add(processedObject);
+                    //                    entities.ProcessedObject processedObject = decompressingThread
+                    //                            .getProcessedObject();
+                    //                    processedObjects.add(processedObject);
                 }
-
-                executorService.awaitTermination(500, TimeUnit.MILLISECONDS);
+                //wait the decompressing threads to finish their job
+                executorService.awaitTermination(150, TimeUnit.MILLISECONDS);
 
                 processedObjects
                         .addAll(decompressingThreads
@@ -129,8 +140,7 @@ public class Master {
                             .allocateDirect(processedObjects
                                     .get(0)
                                     .getPixels().length);
-                    byteBuffer.put(processedObjects
-                            .get(0)
+                    byteBuffer.put(processedObjects.get(0)
                             .getPixels());
                     byteBuffer.rewind();
                     GL11.glDrawPixels(WIDTH, HEIGHT, GL.GL_RGB, GL11.GL_UNSIGNED_BYTE,
@@ -139,14 +149,15 @@ public class Master {
                     isFirstImage = false;
                 } else {
 
-                    ByteBuffer render = updateBuffer(
-                            processedObjects);
+                    renderBuffer = updateBuffer(processedObjects);
 
                     GL11.glDrawPixels(WIDTH, HEIGHT, GL.GL_RGB, GL11.GL_UNSIGNED_BYTE,
-                            render);
+                            renderBuffer);
                     Display.update();
-//                    System.out.println("Displayed " + decompressingThreads.size());
                 }
+
+                //send after receiving frames
+                executorService.execute(messageSender);
 
                 decompressingThreads.removeAll(decompressingThreads);
                 processedObjects.removeAll(processedObjects);
@@ -194,26 +205,28 @@ public class Master {
     private static ProcessedObject getImage(ProcessedObject processedObject, byte[] pixelsBuffer,
             byte[] depthBuffer) {
 
-        byte[] newPixels = new byte[processedObject.getPixels().length];
-        byte[] newDepths = new byte[processedObject.getDepthBuffer().length];
+        //        byte[] newPixels = new byte[processedObject.getPixels().length];
+        //        byte[] newDepths = new byte[processedObject.getDepthBuffer().length];
 
         int pixelIndex = 0;
         for (int i = 0; i < processedObject.getDepthBuffer().length; i += 4) {
             if (depthBuffer[i + 2] > processedObject.getDepthBuffer()[i + 2]) {
-                newPixels[pixelIndex] = pixelsBuffer[pixelIndex];
-                newPixels[pixelIndex + 1] = pixelsBuffer[pixelIndex + 1];
-                newPixels[pixelIndex + 2] = pixelsBuffer[pixelIndex + 2];
-                newDepths[i] = depthBuffer[i + 2];
+                processedObject.getPixels()[pixelIndex] = pixelsBuffer[pixelIndex];
+                processedObject.getPixels()[pixelIndex + 1] = pixelsBuffer[pixelIndex + 1];
+                processedObject.getPixels()[pixelIndex + 2] = pixelsBuffer[pixelIndex + 2];
+                processedObject.getDepthBuffer()[i] = depthBuffer[i + 2];
             } else {
-                newPixels[pixelIndex] = processedObject.getPixels()[pixelIndex];
-                newPixels[pixelIndex + 1] = processedObject.getPixels()[pixelIndex + 1];
-                newPixels[pixelIndex + 2] = processedObject.getPixels()[pixelIndex + 2];
-                newDepths[i] = processedObject.getDepthBuffer()[i + 2];
+                processedObject.getPixels()[pixelIndex] = processedObject.getPixels()[pixelIndex];
+                processedObject.getPixels()[pixelIndex + 1] = processedObject.getPixels()[pixelIndex
+                        + 1];
+                processedObject.getPixels()[pixelIndex + 2] = processedObject.getPixels()[pixelIndex
+                        + 2];
+                processedObject.getDepthBuffer()[i] = processedObject.getDepthBuffer()[i + 2];
             }
             pixelIndex += 3;
         }
 
-        return new ProcessedObject(newDepths, newPixels);
+        return processedObject;
     }
 
     public static void main(String[] argv) {
