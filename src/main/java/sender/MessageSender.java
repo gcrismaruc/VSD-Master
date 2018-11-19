@@ -1,6 +1,7 @@
 package sender;
 
-import entities.ProcessingObject;
+import entities.Scene;
+import utils.MovementUtils;
 
 import javax.jms.DeliveryMode;
 import javax.jms.ExceptionListener;
@@ -10,11 +11,10 @@ import javax.jms.MessageProducer;
 import javax.jms.ObjectMessage;
 import javax.jms.Session;
 import java.time.Instant;
-import java.util.List;
 
 public class MessageSender implements Runnable {
 
-    private List<ProcessingObject> processingObjects;
+    private Scene scene;
     private Session session;
     private MessageProducer messageProducer;
     private static final int DELIVERY_MODE = DeliveryMode.NON_PERSISTENT;
@@ -26,32 +26,28 @@ public class MessageSender implements Runnable {
 
     public void run() {
         Instant start = Instant.now();
-        processingObjects.forEach(processingObject -> {
+        scene.getFrames().forEach(frame -> {
             try {
 
+                MovementUtils.moveObject(frame.getCommand());
                 ObjectMessage objectMessage = session
-                        .createObjectMessage(processingObject);
-
+                        .createObjectMessage(frame);
                 messageProducer.send(objectMessage, DELIVERY_MODE, Message.DEFAULT_PRIORITY,
                         Message.DEFAULT_TIME_TO_LIVE);
-                processingObject.increaseRotationOnY();
 
-//                System.out.println(
-//                        "Processing object: " + processingObject.getObjectName() + " Y = "
-//                                + processingObject.getRy());
-
+                                System.out.println(
+                                        "Processing object: " + frame.getName());
             } catch (JMSException e) {
                 e.printStackTrace();
             }
         });
 
-//        System.out.println("Sending messages = " + Duration.between(start, Instant.now()).toMillis() + " ms");
+        //        System.out.println("Sending messages = " + Duration.between(start, Instant.now()).toMillis() + " ms");
 
     }
 
-    public MessageSender setProcessingObjects(
-            List<ProcessingObject> processingObjects) {
-        this.processingObjects = processingObjects;
+    public MessageSender setScene(Scene scene) {
+        this.scene = scene;
         return this;
     }
 
