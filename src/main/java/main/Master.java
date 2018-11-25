@@ -1,7 +1,6 @@
 package main;
 
 import com.jogamp.opengl.GL;
-import entities.Command;
 import entities.ProcessedObject;
 import entities.ProcessingFrame;
 import entities.Scene;
@@ -24,6 +23,7 @@ import javax.jms.Session;
 import javax.naming.Context;
 import javax.naming.InitialContext;
 import java.nio.ByteBuffer;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -66,8 +66,8 @@ public class Master {
         boolean isFirstImage = true;
 
         Scene scene = new Scene();
-        scene.setFrames(Arrays.asList(new ProcessingFrame().setName("frame1").setCommand(new Command()),
-                new ProcessingFrame().setName("frame2").setCommand(new Command())));
+        scene.setFrames(Arrays.asList(new ProcessingFrame().setName("frame1"),
+                new ProcessingFrame().setName("frame2")));
 
         try {
             Context context = new InitialContext();
@@ -102,18 +102,23 @@ public class Master {
 
             ProcessedObjectsQueue processedObjectsQueue = new ProcessedObjectsQueue();
 
+            boolean needToReceive = true;
+
             while (!Display.isCloseRequested()) {
+
                 // Clear the screen and depth buffer
                 GL11.glClear(GL11.GL_COLOR_BUFFER_BIT | GL11.GL_DEPTH_BUFFER_BIT);
 
-                //                System.out.println("***********************************************************************");
+                System.out.println(
+                        "***********************************************************************");
                 Instant startLoop = Instant.now();
 
                 Instant startReceiving = Instant.now();
                 for (int k = 0; k < SLAVES_NUMBER; k++) {
                     Instant msg = Instant.now();
                     receivedMessage = messageConsumer.receive(100000);
-                    //                    System.out.println("Receiving one msg = " + Duration.between(msg, Instant.now()).toMillis() + " ms");
+                    System.out.println("Receiving one msg = " + Duration
+                            .between(msg, Instant.now()).toMillis() + " ms");
 
                     ObjectMessage objectMessage = (ObjectMessage) receivedMessage;
                     DecompressingThread decompressingThread = new DecompressingThread()
@@ -127,7 +132,9 @@ public class Master {
                 }
                 //wait the decompressing threads to finish their job
                 executorService.awaitTermination(100, TimeUnit.MILLISECONDS);
-                //                System.out.println("Receiving time = " + Duration.between(startReceiving, Instant.now()).toMillis() + " ms");
+                System.out.println(
+                        "Receiving time = " + Duration.between(startReceiving, Instant.now())
+                                .toMillis() + " ms");
 
                 Instant startMapping = Instant.now();
                 processedObjects
@@ -136,7 +143,10 @@ public class Master {
                                 .map(decompressingThread -> decompressingThread
                                         .getProcessedObject())
                                 .collect(Collectors.toList()));
-                //                System.out.println("Mapping time = " + Duration.between(startMapping, Instant.now()).toMillis() + " ms");
+                System.out.println(
+                        "Mapping time = " + Duration.between(startMapping, Instant.now())
+                                .toMillis()
+                                + " ms");
 
                 if (isFirstImage) {
                     byteBuffer = ByteBuffer
@@ -155,21 +165,28 @@ public class Master {
                     Instant start = Instant.now();
                     renderBuffer = updateBuffer(processedObjects);
 
-                    //                    System.out.println("Merging time = " + Duration.between(start, Instant.now()).toMillis() + " ms");
+                    System.out.println(
+                            "Merging time = " + Duration.between(start, Instant.now())
+                                    .toMillis()
+                                    + " ms");
 
                     GL11.glDrawPixels(WIDTH, HEIGHT, GL.GL_RGB, GL11.GL_UNSIGNED_BYTE,
                             renderBuffer);
                     Display.update();
                 }
 
-                //send after receiving frames
                 executorService.execute(messageSender);
 
                 decompressingThreads.removeAll(decompressingThreads);
                 processedObjects.removeAll(processedObjects);
 
-                //                System.out.println("Total loop time: " + Duration.between(startLoop, Instant.now()).toMillis() + " ms");
-                //                System.out.println("----------------------------------------------------------------------------------");
+                System.out.println(
+                        "Total loop time: " + Duration.between(startLoop, Instant.now())
+                                .toMillis()
+                                + " ms");
+                System.out.println(
+                        "----------------------------------------------------------------------------------");
+
             }
 
             connection.close();
@@ -192,7 +209,8 @@ public class Master {
 
         if (listSize == 2) {
             bufferToReturn
-                    .put(getImage(processedObjects.get(0), processedObjects.get(1).getPixels(),
+                    .put(getImage(processedObjects.get(0),
+                            processedObjects.get(1).getPixels(),
                             processedObjects.get(1).getDepthBuffer()).getPixels());
         } else {
             if (listSize > 2) {

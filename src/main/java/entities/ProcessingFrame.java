@@ -4,28 +4,38 @@ import java.io.Serializable;
 
 public class ProcessingFrame implements Serializable {
     private String name;
-    private Command command;
+    private int keyboard;
+    private int mouseWheel;
 
     private boolean isConsumed = false;
 
     public ProcessingFrame() {
     }
 
+    public int getMouseWheel() {
+        return mouseWheel;
+    }
+
+    public ProcessingFrame setMouseWheel(int mouseWheel) {
+        this.mouseWheel = mouseWheel;
+        return this;
+    }
+
     public String getName() {
         return name;
     }
 
-    public ProcessingFrame setName(String name) {
-        this.name = name;
+    public int getKeyboard() {
+        return keyboard;
+    }
+
+    public ProcessingFrame setKeyboard(int keyboard) {
+        this.keyboard = keyboard;
         return this;
     }
 
-    public Command getCommand() {
-        return command;
-    }
-
-    public ProcessingFrame setCommand(Command command) {
-        this.command = command;
+    public ProcessingFrame setName(String name) {
+        this.name = name;
         return this;
     }
 

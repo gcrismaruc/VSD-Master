@@ -1,38 +1,30 @@
 package utils;
 
-import entities.Command;
 import org.lwjgl.input.Keyboard;
 import org.lwjgl.input.Mouse;
 
 public class MovementUtils {
-
-    public static final int MOUSE_VELOCITY = 10;
-    public static final float MOVEMENT_FACTOR = 0.9f;
-
-    public static void moveObject(Command command) {
+    
+    
+    public static int getKey(){
         if (Keyboard.isKeyDown(Keyboard.KEY_DOWN)) {
-            command.setMoveDown(true);
+            return Keyboard.KEY_DOWN;
         }
         if (Keyboard.isKeyDown(Keyboard.KEY_UP)) {
-            command.setMoveUp(true);
+            return Keyboard.KEY_UP;
         }
         if (Keyboard.isKeyDown(Keyboard.KEY_LEFT)) {
-            command.setMoveLeft(true);
+            return Keyboard.KEY_LEFT;
         }
         if (Keyboard.isKeyDown(Keyboard.KEY_RIGHT)) {
-            command.setMoveRight(true);
+            return Keyboard.KEY_RIGHT;
         }
 
-        if (Mouse.isButtonDown(0)) {
-            command.setMoveOnX(true);
-            command.setMoveOnY(true);
-        }
-
-        int dWheel = Mouse.getDWheel();
-        if (dWheel < 0) {
-            command.setZoomIn(true);
-        } else if (dWheel > 0) {
-            command.setZoomOut(true);
-        }
+        return 0;
+    }
+    
+    
+    public static int getMouseDWheel() {
+        return Mouse.getDWheel();
     }
 }

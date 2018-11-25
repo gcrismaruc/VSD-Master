@@ -26,22 +26,28 @@ public class MessageSender implements Runnable {
 
     public void run() {
         Instant start = Instant.now();
+        int key = MovementUtils.getKey();
+        int dWheel = MovementUtils.getMouseDWheel();
         scene.getFrames().forEach(frame -> {
             try {
 
-                MovementUtils.moveObject(frame.getCommand());
+                frame.setMouseWheel(dWheel);
+                frame.setKeyboard(key);
                 ObjectMessage objectMessage = session
                         .createObjectMessage(frame);
                 messageProducer.send(objectMessage, DELIVERY_MODE, Message.DEFAULT_PRIORITY,
                         Message.DEFAULT_TIME_TO_LIVE);
-
-                                System.out.println(
-                                        "Processing object: " + frame.getName());
+//
+//                System.out.println(
+//                        "Processing object: " + frame.getName());
             } catch (JMSException e) {
                 e.printStackTrace();
             }
         });
 
+        scene.getFrames().forEach(frame -> {
+            frame.setKeyboard(0);
+        });
         //        System.out.println("Sending messages = " + Duration.between(start, Instant.now()).toMillis() + " ms");
 
     }
