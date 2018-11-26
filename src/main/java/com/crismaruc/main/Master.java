@@ -1,27 +1,20 @@
 package com.crismaruc.main;
 
-import com.jogamp.opengl.GL;
 import com.crismaruc.entities.ProcessedObject;
 import com.crismaruc.entities.ProcessingFrame;
 import com.crismaruc.entities.Scene;
+import com.crismaruc.sender.KafkaMessageSender;
+import com.jogamp.opengl.GL;
+import org.apache.kafka.clients.consumer.ConsumerRecords;
+import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.lwjgl.LWJGLException;
 import org.lwjgl.opengl.Display;
 import org.lwjgl.opengl.DisplayMode;
 import org.lwjgl.opengl.GL11;
-import com.crismaruc.sender.KafkaMessageSender;
 
-import javax.jms.Connection;
-import javax.jms.ConnectionFactory;
-import javax.jms.Destination;
 import javax.jms.ExceptionListener;
 import javax.jms.JMSException;
-import javax.jms.Message;
-import javax.jms.MessageConsumer;
-import javax.jms.ObjectMessage;
-import javax.jms.Session;
-import javax.naming.Context;
-import javax.naming.InitialContext;
 import java.nio.ByteBuffer;
 import java.time.Duration;
 import java.time.Instant;
@@ -31,8 +24,6 @@ import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 
 public class Master {
 
@@ -71,17 +62,11 @@ public class Master {
                 new ProcessingFrame().setName("frame2")));
 
         try {
-            Context context = new InitialContext();
 
-            ConnectionFactory factory = (ConnectionFactory) context.lookup("myFactoryLookup");
-            Destination queue = (Destination) context.lookup("myQueueLookup");
-
-            Connection connection = factory.createConnection("admin", "admin");
-            connection.setExceptionListener(new Master.MyExceptionListener());
-            connection.start();
-
-            Session consumerSession = connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
-            MessageConsumer messageConsumer = consumerSession.createConsumer(queue);
+            //Start receiving objects
+            KafkaConsumer<String, ProcessedObject> consumer = new KafkaConsumer<String, ProcessedObject>(
+                    getConsumerProperties());
+            consumer.subscribe(Arrays.asList(getConsumerProperties().getProperty("kafka.topic")));
 
             //Start sending requests to slaves
             KafkaProducer<String, ProcessingFrame> producer = new KafkaProducer<String, ProcessingFrame>(
@@ -93,16 +78,11 @@ public class Master {
             ExecutorService executorService = Executors.newFixedThreadPool(SLAVES_NUMBER + 1);
 
             executorService.execute(messageSender);
-            Message receivedMessage;
 
             List<ProcessedObject> processedObjects = new ArrayList<>();
             List<DecompressingThread> decompressingThreads = new ArrayList<>();
 
             Thread.sleep(3000L);
-
-            ProcessedObjectsQueue processedObjectsQueue = new ProcessedObjectsQueue();
-
-            boolean needToReceive = true;
 
             while (!Display.isCloseRequested()) {
 
@@ -114,36 +94,19 @@ public class Master {
                             "***********************************************************************");
 
                     Instant startLoop = Instant.now();
-
                     Instant startReceiving = Instant.now();
-                    for (int k = 0; k < SLAVES_NUMBER; k++) {
-                        Instant msg = Instant.now();
-                        receivedMessage = messageConsumer.receive(100000);
-                        System.out.println(
-                                "Receiving one msg = " + Duration.between(msg, Instant.now())
-                                        .toMillis() + " ms");
 
-                        ObjectMessage objectMessage = (ObjectMessage) receivedMessage;
-                        DecompressingThread decompressingThread = new DecompressingThread()
-                                .setBytes((byte[]) objectMessage.getObject())
-                                .setProcessedObjectsQueue(processedObjectsQueue);
-
-                        executorService.execute(decompressingThread);
-
-                        decompressingThreads.add(decompressingThread);
+                    ConsumerRecords<String, ProcessedObject> records = consumer.poll(Duration.ofMillis(2000));
+                    while (records.isEmpty()) {
+                        records = consumer.poll(Duration.ofMillis(3000));
                     }
+                    records.forEach(record -> {
+                        processedObjects.add(record.value());
+                    });
                     //wait the decompressing threads to finish their job
-                    executorService.awaitTermination(100, TimeUnit.MILLISECONDS);
+//                    executorService.awaitTermination(100, TimeUnit.MILLISECONDS);
                     System.out.println(
                             "Receiving time = " + Duration.between(startReceiving, Instant.now())
-                                    .toMillis() + " ms");
-
-                    Instant startMapping = Instant.now();
-                    processedObjects.addAll(decompressingThreads.stream()
-                            .map(decompressingThread -> decompressingThread.getProcessedObject())
-                            .collect(Collectors.toList()));
-                    System.out.println(
-                            "Mapping time = " + Duration.between(startMapping, Instant.now())
                                     .toMillis() + " ms");
 
                     if (isFirstImage) {
@@ -171,7 +134,7 @@ public class Master {
 
                     executorService.execute(messageSender);
 
-                    decompressingThreads.removeAll(decompressingThreads);
+//                    decompressingThreads.removeAll(decompressingThreads);
                     processedObjects.removeAll(processedObjects);
 
                     System.out.println(
@@ -184,7 +147,6 @@ public class Master {
                 }
             }
 
-            connection.close();
         } catch (Exception exp) {
             System.out.println("Caught exception, exiting.");
             exp.printStackTrace(System.out);
@@ -272,6 +234,22 @@ public class Master {
         properties.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer");
         properties.put("value.serializer", com.crismaruc.entities.ProcessingFrameSerializer.class);
         properties.put("kafka.topic", "slave-commands");
+
+        return properties;
+    }
+
+    public static Properties getConsumerProperties() {
+        Properties properties = new Properties();
+        properties.put("bootstrap.servers", "localhost:9092");
+        properties.put("kafka.topic", "slave-output");
+        properties.put("compression.type", "gzip");
+        properties.put("key.deserializer",
+                "org.apache.kafka.common.serialization.StringDeserializer");
+        properties.put("value.deserializer",
+                com.crismaruc.entities.ProcessedObjectDeserializer.class);
+        properties.put("max.partition.fetch.bytes", "209715200");
+        properties.put("max.poll.records", SLAVES_NUMBER);
+        properties.put("group.id", "my-group");
 
         return properties;
     }
