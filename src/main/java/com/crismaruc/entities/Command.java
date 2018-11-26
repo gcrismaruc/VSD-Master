@@ -1,4 +1,4 @@
-package entities;
+package com.crismaruc.entities;
 
 import java.io.Serializable;
 

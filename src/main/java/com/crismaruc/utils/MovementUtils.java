@@ -1,4 +1,4 @@
-package utils;
+package com.crismaruc.utils;
 
 import org.lwjgl.input.Keyboard;
 import org.lwjgl.input.Mouse;

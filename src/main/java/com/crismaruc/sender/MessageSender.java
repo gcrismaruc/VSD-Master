@@ -1,7 +1,7 @@
-package sender;
+package com.crismaruc.sender;
 
-import entities.Scene;
-import utils.MovementUtils;
+import com.crismaruc.entities.Scene;
+import com.crismaruc.utils.MovementUtils;
 
 import javax.jms.DeliveryMode;
 import javax.jms.ExceptionListener;

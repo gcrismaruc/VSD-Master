@@ -1,28 +1,32 @@
-package main;
+package com.crismaruc.main;
+
+import com.crismaruc.entities.ProcessedObject;
 
 import javax.jms.Connection;
 import javax.jms.ConnectionFactory;
+import javax.jms.DeliveryMode;
 import javax.jms.Destination;
 import javax.jms.ExceptionListener;
 import javax.jms.JMSException;
 import javax.jms.Message;
-import javax.jms.MessageConsumer;
+import javax.jms.MessageProducer;
 import javax.jms.ObjectMessage;
 import javax.jms.Session;
 import javax.naming.Context;
 import javax.naming.InitialContext;
 
-public class Receiver {
+public class Sender {
     private static final int DEFAULT_COUNT = 1000;
+    private static final int DELIVERY_MODE = DeliveryMode.NON_PERSISTENT;
 
     public static void main(String[] args) throws Exception {
         int count = DEFAULT_COUNT;
         if (args.length == 0) {
-            System.out.println("Consuming up to " + count + " messages.");
-            System.out.println("Specify a message count as the program argument if you wish to consume a different amount.");
+            System.out.println("Sending up to " + count + " messages.");
+            System.out.println("Specify a message count as the program argument if you wish to send a different amount.");
         } else {
             count = Integer.parseInt(args[0]);
-            System.out.println("Consuming up to " + count + " messages.");
+            System.out.println("Sending up to " + count + " messages.");
         }
 
         try {
@@ -40,40 +44,26 @@ public class Receiver {
 
             Session session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
 
-            MessageConsumer messageConsumer = session.createConsumer(queue);
+            MessageProducer messageProducer = session.createProducer(queue);
 
             long start = System.currentTimeMillis();
+            for (int i = 1; i <= count; i++) {
+//                TextMessage message = session.createTextMessage("Text!");
 
-            int actualCount = 0;
-            boolean deductTimeout = false;
-            int timeout = 1000;
-            for (int i = 1; i <= count; i++, actualCount++) {
-                Message message = messageConsumer.receive(timeout);
+                ObjectMessage objectMessage = session.createObjectMessage(new ProcessedObject(new byte[]{12, 21, 21}, new byte[]{12,22,1,3}));
 
-                if (message == null) {
-                    System.out.println("Message " + i + " not received within timeout, stopping.");
-                    deductTimeout = true;
-                    break;
-                }
+                messageProducer.send(objectMessage, DELIVERY_MODE, Message.DEFAULT_PRIORITY, Message.DEFAULT_TIME_TO_LIVE);
 
-                if(message instanceof ObjectMessage) {
-                    ObjectMessage objectMessage = (ObjectMessage)message;
-//                    System.out.println("Receive  message: " + ((ProcessedObject)objectMessage.getObject()));
 
-                    entities.ProcessedObject processedObject = (entities.ProcessedObject) objectMessage.getObject();
-                }
 
                 if (i % 100 == 0) {
-                    System.out.println("Got message " + i);
+                    System.out.println("Sent message " + i);
                 }
             }
 
             long finish = System.currentTimeMillis();
             long taken = finish - start;
-            if (deductTimeout) {
-                taken -= timeout;
-            }
-            System.out.println("Received " + actualCount + " messages in " + taken + "ms");
+            System.out.println("Sent " + count + " messages in " + taken + "ms");
 
             connection.close();
         } catch (Exception exp) {

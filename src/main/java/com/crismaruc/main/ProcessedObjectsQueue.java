@@ -1,6 +1,6 @@
-package main;
+package com.crismaruc.main;
 
-import entities.ProcessedObject;
+import com.crismaruc.entities.ProcessedObject;
 
 import java.util.concurrent.ConcurrentLinkedQueue;
 

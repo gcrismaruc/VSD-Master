@@ -1,14 +1,15 @@
-package main;
+package com.crismaruc.main;
 
 import com.jogamp.opengl.GL;
-import entities.ProcessedObject;
-import entities.ProcessingFrame;
-import entities.Scene;
+import com.crismaruc.entities.ProcessedObject;
+import com.crismaruc.entities.ProcessingFrame;
+import com.crismaruc.entities.Scene;
+import org.apache.kafka.clients.producer.KafkaProducer;
 import org.lwjgl.LWJGLException;
 import org.lwjgl.opengl.Display;
 import org.lwjgl.opengl.DisplayMode;
 import org.lwjgl.opengl.GL11;
-import sender.MessageSender;
+import com.crismaruc.sender.KafkaMessageSender;
 
 import javax.jms.Connection;
 import javax.jms.ConnectionFactory;
@@ -17,7 +18,6 @@ import javax.jms.ExceptionListener;
 import javax.jms.JMSException;
 import javax.jms.Message;
 import javax.jms.MessageConsumer;
-import javax.jms.MessageProducer;
 import javax.jms.ObjectMessage;
 import javax.jms.Session;
 import javax.naming.Context;
@@ -28,6 +28,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Properties;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -74,7 +75,6 @@ public class Master {
 
             ConnectionFactory factory = (ConnectionFactory) context.lookup("myFactoryLookup");
             Destination queue = (Destination) context.lookup("myQueueLookup");
-            Destination slaveQueue = (Destination) context.lookup("slaveQueue");
 
             Connection connection = factory.createConnection("admin", "admin");
             connection.setExceptionListener(new Master.MyExceptionListener());
@@ -83,11 +83,11 @@ public class Master {
             Session consumerSession = connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
             MessageConsumer messageConsumer = consumerSession.createConsumer(queue);
 
-            Session producerSession = connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
-            MessageProducer messageProducer = producerSession.createProducer(slaveQueue);
-
             //Start sending requests to slaves
-            MessageSender messageSender = new MessageSender(producerSession, messageProducer);
+            KafkaProducer<String, ProcessingFrame> producer = new KafkaProducer<String, ProcessingFrame>(
+                    getProducerProperty());
+
+            KafkaMessageSender messageSender = new KafkaMessageSender(producer);
             messageSender.setScene(scene);
 
             ExecutorService executorService = Executors.newFixedThreadPool(SLAVES_NUMBER + 1);
@@ -109,88 +109,79 @@ public class Master {
                 // Clear the screen and depth buffer
                 GL11.glClear(GL11.GL_COLOR_BUFFER_BIT | GL11.GL_DEPTH_BUFFER_BIT);
 
-               try {
-                   System.out.println(
-                           "***********************************************************************");
+                try {
+                    System.out.println(
+                            "***********************************************************************");
 
-                   Instant startLoop = Instant.now();
+                    Instant startLoop = Instant.now();
 
-                   Instant startReceiving = Instant.now();
-                   for (int k = 0; k < SLAVES_NUMBER; k++) {
-                       Instant msg = Instant.now();
-                       receivedMessage = messageConsumer.receive(100000);
-                       System.out.println("Receiving one msg = " + Duration
-                               .between(msg, Instant.now()).toMillis() + " ms");
+                    Instant startReceiving = Instant.now();
+                    for (int k = 0; k < SLAVES_NUMBER; k++) {
+                        Instant msg = Instant.now();
+                        receivedMessage = messageConsumer.receive(100000);
+                        System.out.println(
+                                "Receiving one msg = " + Duration.between(msg, Instant.now())
+                                        .toMillis() + " ms");
 
-                       ObjectMessage objectMessage = (ObjectMessage) receivedMessage;
-                       DecompressingThread decompressingThread = new DecompressingThread()
-                               .setBytes((byte[]) objectMessage.getObject())
-                               .setProcessedObjectsQueue(processedObjectsQueue);
+                        ObjectMessage objectMessage = (ObjectMessage) receivedMessage;
+                        DecompressingThread decompressingThread = new DecompressingThread()
+                                .setBytes((byte[]) objectMessage.getObject())
+                                .setProcessedObjectsQueue(processedObjectsQueue);
 
-                       executorService.execute(
-                               decompressingThread);
+                        executorService.execute(decompressingThread);
 
-                       decompressingThreads.add(decompressingThread);
-                   }
-                   //wait the decompressing threads to finish their job
-                   executorService.awaitTermination(100, TimeUnit.MILLISECONDS);
-                   System.out.println(
-                           "Receiving time = " + Duration.between(startReceiving, Instant.now())
-                                   .toMillis() + " ms");
+                        decompressingThreads.add(decompressingThread);
+                    }
+                    //wait the decompressing threads to finish their job
+                    executorService.awaitTermination(100, TimeUnit.MILLISECONDS);
+                    System.out.println(
+                            "Receiving time = " + Duration.between(startReceiving, Instant.now())
+                                    .toMillis() + " ms");
 
-                   Instant startMapping = Instant.now();
-                   processedObjects
-                           .addAll(decompressingThreads
-                                   .stream()
-                                   .map(decompressingThread -> decompressingThread
-                                           .getProcessedObject())
-                                   .collect(Collectors.toList()));
-                   System.out.println(
-                           "Mapping time = " + Duration.between(startMapping, Instant.now())
-                                   .toMillis()
-                                   + " ms");
+                    Instant startMapping = Instant.now();
+                    processedObjects.addAll(decompressingThreads.stream()
+                            .map(decompressingThread -> decompressingThread.getProcessedObject())
+                            .collect(Collectors.toList()));
+                    System.out.println(
+                            "Mapping time = " + Duration.between(startMapping, Instant.now())
+                                    .toMillis() + " ms");
 
-                   if (isFirstImage) {
-                       byteBuffer = ByteBuffer
-                               .allocateDirect(processedObjects
-                                       .get(0)
-                                       .getPixels().length);
-                       byteBuffer.put(processedObjects.get(0)
-                               .getPixels());
-                       byteBuffer.rewind();
-                       GL11.glDrawPixels(WIDTH, HEIGHT, GL.GL_RGB, GL11.GL_UNSIGNED_BYTE,
-                               byteBuffer);
-                       Display.update();
-                       isFirstImage = false;
-                   } else {
+                    if (isFirstImage) {
+                        byteBuffer = ByteBuffer
+                                .allocateDirect(processedObjects.get(0).getPixels().length);
+                        byteBuffer.put(processedObjects.get(0).getPixels());
+                        byteBuffer.rewind();
+                        GL11.glDrawPixels(WIDTH, HEIGHT, GL.GL_RGB, GL11.GL_UNSIGNED_BYTE,
+                                byteBuffer);
+                        Display.update();
+                        isFirstImage = false;
+                    } else {
 
-                       Instant start = Instant.now();
-                       renderBuffer = updateBuffer(processedObjects);
+                        Instant start = Instant.now();
+                        renderBuffer = updateBuffer(processedObjects);
 
-                       System.out.println(
-                               "Merging time = " + Duration.between(start, Instant.now())
-                                       .toMillis()
-                                       + " ms");
+                        System.out.println(
+                                "Merging time = " + Duration.between(start, Instant.now())
+                                        .toMillis() + " ms");
 
-                       GL11.glDrawPixels(WIDTH, HEIGHT, GL.GL_RGB, GL11.GL_UNSIGNED_BYTE,
-                               renderBuffer);
-                       Display.update();
-                   }
+                        GL11.glDrawPixels(WIDTH, HEIGHT, GL.GL_RGB, GL11.GL_UNSIGNED_BYTE,
+                                renderBuffer);
+                        Display.update();
+                    }
 
-                   executorService.execute(messageSender);
+                    executorService.execute(messageSender);
 
-                   decompressingThreads.removeAll(decompressingThreads);
-                   processedObjects.removeAll(processedObjects);
+                    decompressingThreads.removeAll(decompressingThreads);
+                    processedObjects.removeAll(processedObjects);
 
-                   System.out.println(
-                           "Total loop time: " + Duration.between(startLoop, Instant.now())
-                                   .toMillis()
-                                   + " ms");
-                   System.out.println(
-                           "----------------------------------------------------------------------------------");
-               } catch (Exception e) {
-                   System.out.println(e.getMessage());
-               }
+                    System.out.println(
+                            "Total loop time: " + Duration.between(startLoop, Instant.now())
+                                    .toMillis() + " ms");
+                    System.out.println(
+                            "----------------------------------------------------------------------------------");
+                } catch (Exception e) {
+                    System.out.println(e.getMessage());
+                }
             }
 
             connection.close();
@@ -206,15 +197,13 @@ public class Master {
     private static ByteBuffer updateBuffer(List<ProcessedObject> processedObjects) {
         int buffersSize = processedObjects.get(0).getPixels().length;
 
-        ByteBuffer bufferToReturn = ByteBuffer
-                .allocateDirect(buffersSize);
+        ByteBuffer bufferToReturn = ByteBuffer.allocateDirect(buffersSize);
 
         int listSize = processedObjects.size();
 
         if (listSize == 2) {
             bufferToReturn
-                    .put(getImage(processedObjects.get(0),
-                            processedObjects.get(1).getPixels(),
+                    .put(getImage(processedObjects.get(0), processedObjects.get(1).getPixels(),
                             processedObjects.get(1).getDepthBuffer()).getPixels());
         } else {
             if (listSize > 2) {
@@ -255,9 +244,7 @@ public class Master {
             pixelIndex += 3;
         }
 
-        return processedObject
-                .setPixels(newPixels)
-                .setDepthBuffer(newDepths);
+        return processedObject.setPixels(newPixels).setDepthBuffer(newDepths);
     }
 
     public static void main(String[] argv) {
@@ -271,6 +258,22 @@ public class Master {
             exception.printStackTrace(System.out);
             System.exit(1);
         }
+    }
+
+    public static Properties getProducerProperty() {
+        Properties properties = new Properties();
+        properties.put("bootstrap.servers", "localhost:9092");
+        properties.put("acks", "0");
+        properties.put("retries", "1");
+        properties.put("batch.size", "20971520");
+        properties.put("linger.ms", "33");
+        properties.put("max.request.size", "2097152");
+        properties.put("compression.type", "gzip");
+        properties.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer");
+        properties.put("value.serializer", com.crismaruc.entities.ProcessingFrameSerializer.class);
+        properties.put("kafka.topic", "slave-commands");
+
+        return properties;
     }
 
 }

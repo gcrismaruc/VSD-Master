@@ -1,4 +1,4 @@
-package entities;
+package com.crismaruc.entities;
 
 import java.io.Serializable;
 import java.util.Arrays;
@@ -35,7 +35,7 @@ public class ProcessedObject implements Serializable {
 
     @Override
     public String toString() {
-        return "entities.ProcessedObject{" +
+        return "com.crismaruc.entities.ProcessedObject{" +
                 "depthBuffer=" + Arrays.toString(depthBuffer) +
                 ", pixels=" + Arrays.toString(pixels) +
                 '}';

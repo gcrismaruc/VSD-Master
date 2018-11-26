@@ -23,6 +23,21 @@
             <version>6.3.3</version>
         </dependency>
 
+        <!-- gson -->
+        <dependency>
+            <groupId>com.google.code.gson</groupId>
+            <artifactId>gson</artifactId>
+            <version>2.8.2</version>
+        </dependency>
+
+        <!-- kafka -->
+        <!-- https://mvnrepository.com/artifact/org.apache.kafka/kafka -->
+        <dependency>
+            <groupId>org.apache.kafka</groupId>
+            <artifactId>kafka_2.12</artifactId>
+            <version>2.1.0</version>
+        </dependency>
+
 
 
         <!-- Provide a logging implementation to avoid
@@ -114,7 +129,7 @@
                 <artifactId>maven-deploy-plugin</artifactId>
                 <configuration>
                     <!-- Skip deploying the examples, the source is what is
-                         useful and will be bundled with the main assembly -->
+                         useful and will be bundled with the com.crismaruc.main assembly -->
                     <skip>true</skip>
                 </configuration>
             </plugin>

@@ -1,4 +1,4 @@
-package main;
+package com.crismaruc.main;
 
 import javax.jms.Connection;
 import javax.jms.ConnectionFactory;

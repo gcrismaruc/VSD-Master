@@ -1,6 +1,6 @@
-package main;
+package com.crismaruc.main;
 
-import entities.ProcessedObject;
+import com.crismaruc.entities.ProcessedObject;
 
 import java.io.ByteArrayInputStream;
 import java.io.ObjectInputStream;
@@ -60,7 +60,7 @@ public class DecompressingThread implements Runnable {
 //        return processedObject;
 //    }
 //
-//    public main.DecompressingThread setProcessedObject(ProcessedObject processedObject) {
+//    public com.crismaruc.main.DecompressingThread setProcessedObject(ProcessedObject processedObject) {
 //        this.processedObject = processedObject;
 //        return this;
 //    }
