@@ -6,6 +6,7 @@ public class ProcessingFrame implements Serializable {
     private String name;
     private int keyboard;
     private int mouseWheel;
+    private long messageNumber;
 
     private boolean isConsumed = false;
 
@@ -18,6 +19,15 @@ public class ProcessingFrame implements Serializable {
 
     public ProcessingFrame setMouseWheel(int mouseWheel) {
         this.mouseWheel = mouseWheel;
+        return this;
+    }
+
+    public long getMessageNumber() {
+        return messageNumber;
+    }
+
+    public ProcessingFrame setMessageNumber(long messageNumber) {
+        this.messageNumber = messageNumber;
         return this;
     }
 

@@ -58,18 +58,18 @@ public class Master {
         boolean isFirstImage = true;
 
         Scene scene = new Scene();
-        scene.setFrames(Arrays.asList(new ProcessingFrame().setName("frame1"),
-                new ProcessingFrame().setName("frame2")));
+        scene.setFrames(Arrays.asList(new ProcessingFrame().setName("frame1").setMessageNumber(0),
+                new ProcessingFrame().setName("frame2").setMessageNumber(0)));
 
         try {
 
             //Start receiving objects
-            KafkaConsumer<String, ProcessedObject> consumer = new KafkaConsumer<String, ProcessedObject>(
+            KafkaConsumer<String, ProcessedObject> consumer = new KafkaConsumer<>(
                     getConsumerProperties());
             consumer.subscribe(Arrays.asList(getConsumerProperties().getProperty("kafka.topic")));
 
             //Start sending requests to slaves
-            KafkaProducer<String, ProcessingFrame> producer = new KafkaProducer<String, ProcessingFrame>(
+            KafkaProducer<String, ProcessingFrame> producer = new KafkaProducer<>(
                     getProducerProperty());
 
             KafkaMessageSender messageSender = new KafkaMessageSender(producer);
@@ -80,14 +80,8 @@ public class Master {
             executorService.execute(messageSender);
 
             List<ProcessedObject> processedObjects = new ArrayList<>();
-            List<DecompressingThread> decompressingThreads = new ArrayList<>();
-
-            Thread.sleep(3000L);
 
             while (!Display.isCloseRequested()) {
-
-                // Clear the screen and depth buffer
-                GL11.glClear(GL11.GL_COLOR_BUFFER_BIT | GL11.GL_DEPTH_BUFFER_BIT);
 
                 try {
                     System.out.println(
@@ -96,15 +90,14 @@ public class Master {
                     Instant startLoop = Instant.now();
                     Instant startReceiving = Instant.now();
 
-                    ConsumerRecords<String, ProcessedObject> records = consumer.poll(Duration.ofMillis(2000));
-                    while (records.isEmpty()) {
-                        records = consumer.poll(Duration.ofMillis(3000));
+                    ConsumerRecords<String, ProcessedObject> records = consumer.poll(Duration.ofMillis(100));
+                    while (records.count() != SLAVES_NUMBER) {
+                        records = consumer.poll(Duration.ofMillis(100));
                     }
                     records.forEach(record -> {
                         processedObjects.add(record.value());
                     });
-                    //wait the decompressing threads to finish their job
-//                    executorService.awaitTermination(100, TimeUnit.MILLISECONDS);
+
                     System.out.println(
                             "Receiving time = " + Duration.between(startReceiving, Instant.now())
                                     .toMillis() + " ms");
@@ -114,6 +107,11 @@ public class Master {
                                 .allocateDirect(processedObjects.get(0).getPixels().length);
                         byteBuffer.put(processedObjects.get(0).getPixels());
                         byteBuffer.rewind();
+
+                        // Clear the screen and depth buffer
+                        GL11.glClear(GL11.GL_COLOR_BUFFER_BIT | GL11.GL_DEPTH_BUFFER_BIT);
+
+
                         GL11.glDrawPixels(WIDTH, HEIGHT, GL.GL_RGB, GL11.GL_UNSIGNED_BYTE,
                                 byteBuffer);
                         Display.update();
@@ -127,12 +125,20 @@ public class Master {
                                 "Merging time = " + Duration.between(start, Instant.now())
                                         .toMillis() + " ms");
 
+                        System.out.println(renderBuffer);
+
+                        // Clear the screen and depth buffer
+                        GL11.glClear(GL11.GL_COLOR_BUFFER_BIT | GL11.GL_DEPTH_BUFFER_BIT);
+
+
                         GL11.glDrawPixels(WIDTH, HEIGHT, GL.GL_RGB, GL11.GL_UNSIGNED_BYTE,
                                 renderBuffer);
+//                        Display.sync(30);
                         Display.update();
                     }
 
                     executorService.execute(messageSender);
+                    consumer.commitSync();
 
 //                    decompressingThreads.removeAll(decompressingThreads);
                     processedObjects.removeAll(processedObjects);
@@ -142,6 +148,7 @@ public class Master {
                                     .toMillis() + " ms");
                     System.out.println(
                             "----------------------------------------------------------------------------------");
+//                    Thread.sleep(3000);
                 } catch (Exception e) {
                     System.out.println(e.getMessage());
                 }
@@ -224,9 +231,9 @@ public class Master {
 
     public static Properties getProducerProperty() {
         Properties properties = new Properties();
-        properties.put("bootstrap.servers", "localhost:9092");
-        properties.put("acks", "0");
-        properties.put("retries", "1");
+        properties.put("bootstrap.servers", "127.0.0.1:9092");
+        properties.put("acks", "all");
+        properties.put("retries", "0");
         properties.put("batch.size", "20971520");
         properties.put("linger.ms", "33");
         properties.put("max.request.size", "2097152");
@@ -240,16 +247,18 @@ public class Master {
 
     public static Properties getConsumerProperties() {
         Properties properties = new Properties();
-        properties.put("bootstrap.servers", "localhost:9092");
+        properties.put("bootstrap.servers", "127.0.0.1:9092");
         properties.put("kafka.topic", "slave-output");
+        properties.put("enable.auto.commit", "false");
         properties.put("compression.type", "gzip");
         properties.put("key.deserializer",
                 "org.apache.kafka.common.serialization.StringDeserializer");
         properties.put("value.deserializer",
                 com.crismaruc.entities.ProcessedObjectDeserializer.class);
         properties.put("max.partition.fetch.bytes", "209715200");
+        properties.put("auto.offset.reset", "latest");
         properties.put("max.poll.records", SLAVES_NUMBER);
-        properties.put("group.id", "my-group");
+        properties.put("group.id", "groupNo5");
 
         return properties;
     }

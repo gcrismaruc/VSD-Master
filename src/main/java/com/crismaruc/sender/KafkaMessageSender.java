@@ -12,6 +12,7 @@ import java.time.Instant;
 public class KafkaMessageSender implements Runnable {
 
     private Scene scene;
+    private int keyboard;
     KafkaProducer<String, ProcessingFrame> producer;
 
     public KafkaMessageSender(KafkaProducer<String, ProcessingFrame> producer) {
@@ -32,6 +33,8 @@ public class KafkaMessageSender implements Runnable {
 
             frame.setMouseWheel(dWheel);
             frame.setKeyboard(key);
+            long no = frame.getMessageNumber() + 1;
+            frame.setMessageNumber(no);
 
             System.out.println("Sending frame: " + frame.getName());
             producer.send(new ProducerRecord<>(
@@ -44,6 +47,15 @@ public class KafkaMessageSender implements Runnable {
         });
         //        System.out.println("Sending messages = " + Duration.between(start, Instant.now()).toMillis() + " ms");
 
+    }
+
+    public int getKeyboard() {
+        return keyboard;
+    }
+
+    public KafkaMessageSender setKeyboard(int keyboard) {
+        this.keyboard = keyboard;
+        return this;
     }
 
     public Scene getScene() {
