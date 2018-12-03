@@ -1,7 +1,6 @@
 package sender;
 
 import entities.Scene;
-import utils.MovementUtils;
 
 import javax.jms.DeliveryMode;
 import javax.jms.ExceptionListener;
@@ -24,36 +23,44 @@ public class MessageSender implements Runnable {
         this.messageProducer = messageProducer;
     }
 
+    int key;
+
     public void run() {
         Instant start = Instant.now();
-        int key = MovementUtils.getKey();
-        int dWheel = MovementUtils.getMouseDWheel();
-        scene.getFrames().forEach(frame -> {
-            try {
 
-                frame.setMouseWheel(dWheel);
-                frame.setKeyboard(key);
-                ObjectMessage objectMessage = session
-                        .createObjectMessage(frame);
-                messageProducer.send(objectMessage, DELIVERY_MODE, Message.DEFAULT_PRIORITY,
-                        Message.DEFAULT_TIME_TO_LIVE);
-//
-//                System.out.println(
-//                        "Processing object: " + frame.getName());
-            } catch (JMSException e) {
-                e.printStackTrace();
-            }
-        });
+        scene.getFrames()
+                .forEach(frame -> {
+                    try {
+                        System.out.println("Sending ...");
+                        frame.setKeyboard(key);
+                        ObjectMessage objectMessage = session.createObjectMessage(frame);
+                        messageProducer.send(objectMessage, DELIVERY_MODE, Message.DEFAULT_PRIORITY,
+                                Message.DEFAULT_TIME_TO_LIVE);
+                    } catch (JMSException e) {
+                        e.printStackTrace();
+                    }
+                });
 
-        scene.getFrames().forEach(frame -> {
-            frame.setKeyboard(0);
-        });
-        //        System.out.println("Sending messages = " + Duration.between(start, Instant.now()).toMillis() + " ms");
+        scene.getFrames()
+                .forEach(frame -> {
+                    frame.setKeyboard(0);
+                });
+        //        System.out.println("Sending messages = " + Duration.between(start, Instant.now
+        // ()).toMillis() + " ms");
 
     }
 
     public MessageSender setScene(Scene scene) {
         this.scene = scene;
+        return this;
+    }
+
+    public int getKey() {
+        return key;
+    }
+
+    public MessageSender setKey(int key) {
+        this.key = key;
         return this;
     }
 

@@ -4,9 +4,8 @@ import org.lwjgl.input.Keyboard;
 import org.lwjgl.input.Mouse;
 
 public class MovementUtils {
-    
-    
-    public static int getKey(){
+
+    public static int getKey() {
         if (Keyboard.isKeyDown(Keyboard.KEY_DOWN)) {
             return Keyboard.KEY_DOWN;
         }
@@ -22,8 +21,12 @@ public class MovementUtils {
 
         return 0;
     }
-    
-    
+
+    public static boolean isKeyDown() {
+        return Keyboard.isKeyDown(Keyboard.KEY_DOWN) || Keyboard.isKeyDown(Keyboard.KEY_UP)
+                || Keyboard.isKeyDown(Keyboard.KEY_LEFT) || Keyboard.isKeyDown(Keyboard.KEY_RIGHT);
+    }
+
     public static int getMouseDWheel() {
         return Mouse.getDWheel();
     }
