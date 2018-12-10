@@ -14,7 +14,8 @@ public class MovementThread implements Runnable{
     public void run() {
         synchronized (needToProcess) {
             while (true) {
-                int key = MovementUtils.getKey();
+//                int key = MovementUtils.getKey();
+                int key = 0;
                 System.out.println("Pressed key: " + key);
                 if(key != 0) {
                     needToProcess = true;

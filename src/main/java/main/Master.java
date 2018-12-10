@@ -106,79 +106,93 @@ public class Master {
             ProcessedObjectsQueue processedObjectsQueue = new ProcessedObjectsQueue();
 
             int key;
+            MovementUtils movementUtils = new MovementUtils();
 
             while (!Display.isCloseRequested()) {
-                key = MovementUtils.getKey();
+                key = movementUtils.getKey();
                 if (key != 0 || isFirstImage) {
                     try {
+                        Instant startLoop = Instant.now();
+                        System.out.println("Is first image: " + isFirstImage);
+                        if(isFirstImage) {
+                            isFirstImage = false;
+                        }
+                        messageSender.setKey(key);
                         executorService.execute(messageSender);
+                        executorService.awaitTermination(150, TimeUnit.MILLISECONDS);
 
                         System.out.println(
                                 "***********************************************************************");
-                        messageSender.setKey(key);
 
-                        Instant startLoop = Instant.now();
+                        List<ObjectMessage> objectMessages = new ArrayList<>();
 
                         Instant startReceiving = Instant.now();
                         for (int k = 0; k < FRAMES_NUMBER; k++) {
                             Instant msg = Instant.now();
-                            receivedMessage = messageConsumer.receive(100000);
+                            receivedMessage = messageConsumer.receive();
                             System.out.println(
-                                    "Receiving one msg = " + Duration.between(msg, Instant.now())
+                                    "Receiving message " + k + " in = " + Duration.between(msg,
+                                            Instant.now())
                                             .toMillis() + " ms");
 
                             ObjectMessage objectMessage = (ObjectMessage) receivedMessage;
-                            DecompressingThread decompressingThread = new DecompressingThread()
-                                    .setBytes(
-                                    (byte[]) objectMessage.getObject())
-                                    .setProcessedObjectsQueue(processedObjectsQueue);
-
-                            executorService.execute(decompressingThread);
-
-                            decompressingThreads.add(decompressingThread);
+                            objectMessages.add(objectMessage);
                         }
+
+                        System.out.println(
+                                "Total time for receiving entire scene = " + Duration.between(
+                                        startReceiving, Instant.now())
+                                        .toMillis() + " ms");
+
+                        objectMessages.forEach(objectMessage -> {
+                            DecompressingThread decompressingThread;
+                            try {
+                                decompressingThread = new DecompressingThread().setBytes(
+                                        (byte[]) objectMessage.getObject())
+                                        .setProcessedObjectsQueue(processedObjectsQueue);
+                                executorService.execute(decompressingThread);
+
+                                decompressingThreads.add(decompressingThread);
+                            } catch (JMSException e) {
+                                e.printStackTrace();
+                            }
+                        });
+
                         //wait the decompressing threads to finish their job
                         executorService.awaitTermination(100, TimeUnit.MILLISECONDS);
-                        System.out.println("Receiving time = " + Duration.between(startReceiving,
-                                Instant.now())
-                                .toMillis() + " ms");
 
-                        Instant startMapping = Instant.now();
                         processedObjects.addAll(decompressingThreads.stream()
                                 .map(DecompressingThread::getProcessedObject)
                                 .collect(Collectors.toList()));
-                        System.out.println(
-                                "Mapping time = " + Duration.between(startMapping, Instant.now())
-                                        .toMillis() + " ms");
 
-                        if (isFirstImage) {
-                            byteBuffer = ByteBuffer.allocateDirect(processedObjects.get(0)
-                                    .getPixels().length);
-                            byteBuffer = updateBuffer(processedObjects);
-
-                            byteBuffer.rewind();
-                            GL11.glClear(GL11.GL_COLOR_BUFFER_BIT | GL11.GL_DEPTH_BUFFER_BIT);
-
-                            GL11.glDrawPixels(WIDTH, HEIGHT, GL.GL_RGB, GL11.GL_UNSIGNED_BYTE,
-                                    byteBuffer);
-                            Display.update();
-
-                            renderBuffer = byteBuffer;
-                            isFirstImage = false;
-
-                        } else {
+//                        if (isFirstImage) {
+//                            byteBuffer = ByteBuffer.allocateDirect(processedObjects.get(0)
+//                                    .getPixels().length);
+//                            byteBuffer = updateBuffer(processedObjects);
+//
+//                            byteBuffer.rewind();
+//                            GL11.glClear(GL11.GL_COLOR_BUFFER_BIT | GL11.GL_DEPTH_BUFFER_BIT);
+//
+//                            GL11.glDrawPixels(WIDTH, HEIGHT, GL.GL_RGB, GL11.GL_UNSIGNED_BYTE,
+//                                    byteBuffer);
+//                            Display.update();
+//                            isFirstImage = false;
+//
+//                            renderBuffer = byteBuffer;
+//
+//                        } else {
                             Instant start = Instant.now();
                             renderBuffer = updateBuffer(processedObjects);
 
                             System.out.println(
-                                    "Merging time = " + Duration.between(start, Instant.now())
+                                    "Merging buffers time = " + Duration.between(start, Instant.now())
                                             .toMillis() + " ms");
                             GL11.glClear(GL11.GL_COLOR_BUFFER_BIT | GL11.GL_DEPTH_BUFFER_BIT);
 
                             GL11.glDrawPixels(WIDTH, HEIGHT, GL.GL_RGB, GL11.GL_UNSIGNED_BYTE,
                                     renderBuffer);
                             Display.update();
-                        }
+//                        }
 
                         decompressingThreads.removeAll(decompressingThreads);
                         processedObjects.removeAll(processedObjects);
