@@ -40,7 +40,7 @@ public class Master {
     public static final int HEIGHT = 720;
     private static final int FPS_CAP = 60;
 
-    public static int SLAVES_NUMBER = 2;
+    public static int FRAMES_NUMBER = 3;
 
     public static Boolean needToProcess = true;
 
@@ -70,7 +70,7 @@ public class Master {
 
         Scene scene = new Scene();
         scene.setFrames(Arrays.asList(new ProcessingFrame().setName("frame1"),
-                new ProcessingFrame().setName("frame2")));
+                new ProcessingFrame().setName("frame2"), new ProcessingFrame().setName("frame3")));
 
         try {
             Context context = new InitialContext();
@@ -94,38 +94,33 @@ public class Master {
             messageSender.setScene(scene);
             messageSender.setKey(11);
 
-            ExecutorService executorService = Executors.newFixedThreadPool(SLAVES_NUMBER + 2);
+            ExecutorService executorService = Executors.newFixedThreadPool(FRAMES_NUMBER + 2);
 
-//            executorService.execute(messageSender);
-            new Thread(messageSender).start();
+            //            executorService.execute(messageSender);
+            //            new Thread(messageSender).start();
             Message receivedMessage;
 
             List<ProcessedObject> processedObjects = new ArrayList<>();
             List<DecompressingThread> decompressingThreads = new ArrayList<>();
-
-//            Thread.sleep(3000L);
 
             ProcessedObjectsQueue processedObjectsQueue = new ProcessedObjectsQueue();
 
             int key;
 
             while (!Display.isCloseRequested()) {
-
-//                System.out.println("Key: " + Keyboard.getEventKey());
-
                 key = MovementUtils.getKey();
                 if (key != 0 || isFirstImage) {
                     try {
+                        executorService.execute(messageSender);
+
                         System.out.println(
                                 "***********************************************************************");
-
-                        key = MovementUtils.getKey();
                         messageSender.setKey(key);
 
                         Instant startLoop = Instant.now();
 
                         Instant startReceiving = Instant.now();
-                        for (int k = 0; k < SLAVES_NUMBER; k++) {
+                        for (int k = 0; k < FRAMES_NUMBER; k++) {
                             Instant msg = Instant.now();
                             receivedMessage = messageConsumer.receive(100000);
                             System.out.println(
@@ -159,8 +154,8 @@ public class Master {
                         if (isFirstImage) {
                             byteBuffer = ByteBuffer.allocateDirect(processedObjects.get(0)
                                     .getPixels().length);
-                            byteBuffer.put(processedObjects.get(0)
-                                    .getPixels());
+                            byteBuffer = updateBuffer(processedObjects);
+
                             byteBuffer.rewind();
                             GL11.glClear(GL11.GL_COLOR_BUFFER_BIT | GL11.GL_DEPTH_BUFFER_BIT);
 
@@ -172,13 +167,12 @@ public class Master {
                             isFirstImage = false;
 
                         } else {
-
                             Instant start = Instant.now();
                             renderBuffer = updateBuffer(processedObjects);
 
-                            System.out.println("Merging time = " + Duration.between(start,
-                                    Instant.now())
-                                    .toMillis() + " ms");
+                            System.out.println(
+                                    "Merging time = " + Duration.between(start, Instant.now())
+                                            .toMillis() + " ms");
                             GL11.glClear(GL11.GL_COLOR_BUFFER_BIT | GL11.GL_DEPTH_BUFFER_BIT);
 
                             GL11.glDrawPixels(WIDTH, HEIGHT, GL.GL_RGB, GL11.GL_UNSIGNED_BYTE,
@@ -186,14 +180,12 @@ public class Master {
                             Display.update();
                         }
 
-                        executorService.execute(messageSender);
-
                         decompressingThreads.removeAll(decompressingThreads);
                         processedObjects.removeAll(processedObjects);
 
-                        System.out.println("Total loop time: " + Duration.between(startLoop,
-                                Instant.now())
-                                .toMillis() + " ms");
+                        System.out.println(
+                                "Total loop time: " + Duration.between(startLoop, Instant.now())
+                                        .toMillis() + " ms");
                         System.out.println(
                                 "----------------------------------------------------------------------------------");
                     } catch (Exception e) {
