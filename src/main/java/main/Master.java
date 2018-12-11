@@ -119,7 +119,7 @@ public class Master {
                         }
                         messageSender.setKey(key);
                         executorService.execute(messageSender);
-                        executorService.awaitTermination(150, TimeUnit.MILLISECONDS);
+//                        executorService.awaitTermination(150, TimeUnit.MILLISECONDS);
 
                         System.out.println(
                                 "***********************************************************************");

@@ -4,6 +4,7 @@ import java.io.Serializable;
 
 public class ProcessingFrame implements Serializable {
     private String name;
+    private String uuid;
     private int keyboard;
     private int mouseWheel;
 
@@ -45,6 +46,15 @@ public class ProcessingFrame implements Serializable {
 
     public ProcessingFrame setConsumed(boolean consumed) {
         isConsumed = consumed;
+        return this;
+    }
+
+    public String getUuid() {
+        return uuid;
+    }
+
+    public ProcessingFrame setUuid(String uuid) {
+        this.uuid = uuid;
         return this;
     }
 }

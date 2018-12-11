@@ -14,6 +14,7 @@ import java.time.Instant;
 import java.util.Collections;
 import java.util.List;
 import java.util.Random;
+import java.util.UUID;
 
 public class MessageSender implements Runnable {
 
@@ -35,12 +36,14 @@ public class MessageSender implements Runnable {
         Instant start = Instant.now();
 
         List<ProcessingFrame> frames = scene.getFrames();
+        UUID uuid = UUID.randomUUID();
 
         Collections.shuffle(frames);
         frames
                 .forEach(frame -> {
                     try {
                         System.out.println("Sending frame: " + frame.getName() + " with key: " + key);
+                        frame.setUuid(uuid.toString());
                         frame.setKeyboard(key);
                         ObjectMessage objectMessage = session.createObjectMessage(frame);
                         messageProducer.send(objectMessage, DELIVERY_MODE, Message.DEFAULT_PRIORITY,
